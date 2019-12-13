@@ -1,6 +1,11 @@
 const inquirer = require("inquirer");
 const axios = require("axios");
-const pdf = require('html-pdf');
+const HTML5ToPDF = require('html5-to-pdf')
+const path = require("path")
+const util = require("util")
+const fs = require("fs")
+const writeFileAsync = util.promisify(fs.writeFile)
+
 
 class DoMyHomework {
     constructor() {
@@ -13,9 +18,14 @@ class DoMyHomework {
             {
                 message: 'What is your user name',
                 name: 'githubUserName'
+            },
+            {
+                message: "Pick a background color?",
+                name: 'color',
             }
-        ]).then(({ githubUserName }) => {
-            this.githubUserName = githubUserName;
+        ]).then(answers => {
+            this.githubUserName = answers.githubUserName;
+            this.color = answers.color;
             this.makeApiRequest();
         })
     }
@@ -64,36 +74,76 @@ class DoMyHomework {
             })
     }
 
-    createHtml() {
-        this.html = `
+    async createHtml() {
+        await writeFileAsync("profile.html",`
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
         <link rel="stylesheet" href="profileGenerator.css">
     <html>
-    <body>
+    <body style="background-color: ${this.color}">
+    
     <div class="jumbotron">
-        <h1>name: ${this.name}</h1>
+
         <img id="profileImage" src='${this.avatar_url}'>
+
+        <h1>${this.name} | ${this.location}</h1>
+        
     </div>
-    <div>bio: ${this.bio}</div>
-    <div>city: ${this.location}</div>
-    <div>repos: ${this.public_repos}</div>
-    <div>followers: ${this.followers}</div>
-    <div>following: ${this.following}</div>
+
+    <div>${this.bio}</div>
+   
+    <div class="card-deck">
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">REPOS</h5>
+        <p class="card-text">${this.public_repos}</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Followers</h5>
+        <p class="card-text">${this.followers}</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Following</h5>
+        <p class="card-text">${this.following}</p>
+      </div>
+    </div>
+    </div>
     </body>
     </html>
-    `;
+    `) ;
         console.log(this);
-        this.createPdf();
+        await this.createPdf();
     }
 
-    createPdf() {
-        pdf.create(this.html).toFile('./class-test.pdf', function (err, res) {
-            if (err) return console.log(err);
-            console.log(res);
-        });
-    }
-
+    async createPdf() {
+        const html5ToPDF = new HTML5ToPDF({
+            inputPath: path.join("./", "profile.html"),
+            outputPath: path.join("./", "profile.pdf"),
+            templatePath: path.join("./", "templates", "htmlbootstrap"),
+            include: [
+              path.join("./", "profileGenerator.css"),
+            ],
+            options: {
+                printBackground: true,
+            }
+          })
+         
+          await html5ToPDF.start()
+          await html5ToPDF.build()
+          await html5ToPDF.close()
+          console.log("DONE")
+          process.exit(0)
+        }
 }
+
+
 
 var newHomework = new DoMyHomework();
 newHomework.promptUser();
+
